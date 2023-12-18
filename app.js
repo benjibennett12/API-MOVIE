@@ -1,42 +1,46 @@
 const express = require('express');
-const path = require('path');
-const hbs = require('hbs');
-const movieID = require('./srcs/movie');
-
 const app = express();
 const port = 8040;
+const path = require('path');
+const movieID = require('./srcs/movie');
 
-app.use(express.static(path.join(__dirname, '../public')));
 
-app.set("view engine", "hbs");
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-    res.render("index", {
-        title: "Search Movie",
-        footer: "BY BENJI BENNETT"
-    });
+    res.sendFile(path.join(__dirname, 'views', 'index.html' ));
 });
 
-app.get('/movie', (req, res) => {
-    const movieId = req.query.id;
 
-    if (!movieId || isNaN(movieId)) {
+app.get('/movie', async (req, res) => {
+    const movieTitle = req.query.title;
+
+    if (!movieTitle) {
         return res.status(400).send({
-            error: 'Invalid or missing movie ID'
+            error: 'Invalid movie Title'
         });
     }
 
-    movieID(req.query.id, (err, id) => {
-        if (err) {
-            return res.send({
-                error: 'Error fetching movie ID'
+    try {
+        const movieId = await movieID(movieTitle);
+        if (!movieId) {
+            return res.status(404).send({
+                error: 'Movie not found'
             });
         }
 
+        const similarMoviesData = await similarMovies(movieId);
+
         res.send({
-            id: id
+            movieId: movieId,
+            similarMovies: similarMoviesData
         });
-    });
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({
+            error: 'Internal Server Error'
+        });
+    }
 });
 
 app.listen(port, (err) => {
